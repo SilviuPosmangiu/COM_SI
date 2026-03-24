@@ -1,4 +1,4 @@
-#include "functions.h"
+#include "aes_128.h"
 #include <stdio.h>
 
 #define ROTL8(x,shift) ((uchar) ((x) << (shift)) | ((x) >> (8 - (shift))))
@@ -54,6 +54,24 @@ void print_sbox() {
 	printf("\n");
 }
 
+void print_state(uchar state[4][4]) {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			printf("%02x ", state[i][j]);
+		}
+		printf("\n");
+	}
+}
+
+void print_roundkey(uchar* round_keys) {
+	for (int r = 0; r < 4; r++) {
+		for (int c = 0; c < 4; c++) {
+			printf("%02x ", round_keys[4 * c + r]);
+		}
+		printf("\n");
+	}
+}
+
 void copy_word(uchar dest[4], uchar src[4]) {
 	dest[0] = src[0];
 	dest[1] = src[1];
@@ -87,7 +105,7 @@ void key_expansion(const uchar key[], uchar round_keys[], int nk, int nr) {
 	}
 	while (i <= 4 * nr + 3) {
 		uchar temp[4];
-		copy_word(temp, round_keys + i - 1);
+		copy_word(temp, round_keys + (i - 1) * 4);
 		if (i % nk == 0) {
 			rot_word(temp);
 			sub_word(temp);
@@ -218,6 +236,12 @@ void inv_sub_bytes(uchar state[4][4]) {
 
 void cipher(const uchar in[16], uchar out[16], const uchar round_keys[], int nr) {
 	uchar state[4][4];
+	//afisare chei
+	/*for (int i = 0; i < 11; i++) {
+		printf("Key (%d):\n", i);
+		print_roundkey((uchar*)(round_keys + i * 16));
+		printf("\n");
+	}*/
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			state[j][i] = in[i * 4 + j];
