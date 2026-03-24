@@ -5,6 +5,7 @@
 
 uchar sbox[256];
 uchar inv_sbox[256];
+uchar rcon[] = { 0x00, 0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1B,0x36 };
 bool sbox_initialized = false;
 
 void initialize_sbox() {
@@ -90,7 +91,7 @@ void key_expansion(const uchar key[], uchar round_keys[], int nk, int nr) {
 		if (i % nk == 0) {
 			rot_word(temp);
 			sub_word(temp);
-			temp[0] ^= (0x01 << ((i / nk) - 1)) & 0xFF;
+			temp[0] ^= rcon[i / nk];
 		}
 		else if (nk > 6 && i % nk == 4) {
 			sub_word(temp);
