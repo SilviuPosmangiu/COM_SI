@@ -235,6 +235,10 @@ void inv_sub_bytes(uchar state[4][4]) {
 }
 
 void cipher(const uchar in[16], uchar out[16], const uchar round_keys[], int nr) {
+	if (!sbox_initialized) {
+		initialize_sbox();
+	}
+
 	uchar state[4][4];
 	//afisare chei
 	/*for (int i = 0; i < 11; i++) {
@@ -265,6 +269,10 @@ void cipher(const uchar in[16], uchar out[16], const uchar round_keys[], int nr)
 }
 
 void inv_cipher(const uchar in[16], uchar out[16], const uchar round_keys[], int nr) {
+	if (!sbox_initialized) {
+		initialize_sbox();
+	}
+	
 	uchar state[4][4];
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
