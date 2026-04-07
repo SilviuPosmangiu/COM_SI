@@ -156,4 +156,5 @@ void test_aes_128() {
         cout << "Decriptarea a fost corecta\n";
     else
         cout << "Decriptarea NU a fost corecta\n";
+	cout << "---------------------------------------------\n\n";
 }

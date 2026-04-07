@@ -24,12 +24,18 @@
     <ClCompile Include="aes_128_tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="communications.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aes_128.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="aes_128_tests.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="communications.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

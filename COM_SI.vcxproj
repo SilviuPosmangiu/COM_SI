@@ -21,11 +21,13 @@
   <ItemGroup>
     <ClCompile Include="aes_128.cpp" />
     <ClCompile Include="aes_128_tests.cpp" />
+    <ClCompile Include="communications.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aes_128.h" />
     <ClInclude Include="aes_128_tests.h" />
+    <ClInclude Include="communications.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
