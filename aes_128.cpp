@@ -5,7 +5,7 @@
 
 uchar sbox[256];
 uchar inv_sbox[256];
-uchar rcon[] = { 0x00, 0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1B,0x36 };
+uchar rcon[] = { 0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36 };
 bool sbox_initialized = false;
 
 void initialize_sbox() {
@@ -296,21 +296,75 @@ void inv_cipher(const uchar in[16], uchar out[16], const uchar round_keys[], int
 	}
 }
 
-
-void aes_128_encrypt(const uchar plaintext[16], const uchar key[16], uchar ciphertext[16]) {
-	const int nk = 4;
-	const int nr = 10;
-
-	uchar round_keys[4 * (nr + 1) * 4];
-	key_expansion(key, round_keys, nk, nr);
-
-	cipher(plaintext, ciphertext, round_keys, nr);
+void pkcs7_pad(const uchar* input, int input_len, uchar* output, int block_size) {
+	int pad_len = block_size - (input_len % block_size);
+	memcpy(output, input, input_len);
+	for (int i = 0; i < pad_len; i++) {
+		output[input_len + i] = (uchar)pad_len;
+	}
 }
 
-void aes_128_decrypt(const uchar ciphertext[16], const uchar key[16], uchar plaintext[16]) {
+void pkcs7_unpad(uchar* input, int input_len, uchar* output, int block_size) {
+	if (input_len == 0 || input_len % block_size != 0) {
+		return;
+	}
+	int pad_len = input[input_len - 1];
+	if (pad_len <= 0 || pad_len > block_size) {
+		return;
+	}
+	for (int i = 0; i < pad_len; i++) {
+		if (input[input_len - 1 - i] != pad_len) {
+			return;
+		}
+	}
+	memcpy(output, input, input_len - pad_len);
+	output[input_len - pad_len] = '\0';
+}
+
+
+void aes_128_encrypt(const uchar plaintext[], int input_len, const uchar key[16], uchar ciphertext[], int* final_len) {
+	const int nk = 4;
+	const int nr = 10;
+
+	uchar round_keys[4 * (nr + 1) * 4];
+	key_expansion(key, round_keys, nk, nr);
+
+	int pad_len = 16 - (input_len % 16);
+	int padded_len = input_len + pad_len;
+	
+	if (final_len != nullptr) {
+		*final_len = padded_len;
+	}
+
+	uchar padded[MAX_LEN + 16]; 
+	pkcs7_pad(plaintext, input_len, padded, 16);
+
+	for (int i = 0; i < padded_len; i += 16) {
+		cipher(padded + i, ciphertext + i, round_keys, nr);
+	}
+}
+
+void aes_128_decrypt(const uchar ciphertext[], int cipher_len, const uchar key[16], uchar plaintext[], int* final_len) {
 	const int nk = 4;
 	const int nr = 10;
 	uchar round_keys[4 * (nr + 1) * 4];
+	
 	key_expansion(key, round_keys, nk, nr);
-	inv_cipher(ciphertext, plaintext, round_keys, nr);
+
+	uchar padded[MAX_LEN + 16];
+
+	for (int i = 0; i < cipher_len; i += 16) {
+		inv_cipher(ciphertext + i, padded + i, round_keys, nr);
+	}
+
+	pkcs7_unpad(padded, cipher_len, plaintext, 16);
+
+	if (final_len != nullptr) {
+		int pad_len = padded[cipher_len - 1];
+		if (pad_len > 0 && pad_len <= 16) {
+			*final_len = cipher_len - pad_len;
+		} else {
+			*final_len = cipher_len;
+		}
+	}
 }

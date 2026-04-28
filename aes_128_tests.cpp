@@ -1,4 +1,4 @@
-#include "aes_128_tests.h"
+﻿#include "aes_128_tests.h"
 
 using namespace std;
 
@@ -8,11 +8,8 @@ void handleErrors()
     abort();
 }
 
-vector<unsigned char> aes128_encrypt_openssl_no_padding(const vector<unsigned char>& plaintext, const vector<unsigned char>& key)
+vector<unsigned char> aes128_encrypt_openssl(const vector<unsigned char>& plaintext, const vector<unsigned char>& key)
 {
-    if (plaintext.size() != 16)
-        throw runtime_error("Plaintext-ul trebuie sa aiba exact 16 bytes.");
-
     if (key.size() != 16)
         throw runtime_error("Cheia trebuie sa aiba exact 16 bytes.");
 
@@ -20,14 +17,15 @@ vector<unsigned char> aes128_encrypt_openssl_no_padding(const vector<unsigned ch
     if (!ctx)
         handleErrors();
 
-    vector<unsigned char> ciphertext(16);
+    // Redimensionăm buffer-ul cat sa incapa textul initial si padding-ul maxim (16)
+    vector<unsigned char> ciphertext(plaintext.size() + 16);
     int len = 0;
     int final_len = 0;
 
     if (EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key.data(), nullptr) != 1)
         handleErrors();
 
-    if (EVP_CIPHER_CTX_set_padding(ctx, 0) != 1)
+    if (EVP_CIPHER_CTX_set_padding(ctx, 1) != 1)
         handleErrors();
 
     if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(), static_cast<int>(plaintext.size())) != 1)
@@ -104,10 +102,10 @@ void test_aes_128() {
         0x09, 0xcf, 0x4f, 0x3c
     };
 
-    uchar plaintext_mine[16];
+    uchar plaintext_mine[32] = { 0 };
     uchar key_mine[16];
-    uchar ciphertext_mine[16] = { 0 };
-    uchar decrypted_mine[16] = { 0 };
+    uchar ciphertext_mine[32] = { 0 };
+    uchar decrypted_mine[32] = { 0 };
 
     for (int i = 0; i < 16; i++)
     {
@@ -116,8 +114,8 @@ void test_aes_128() {
     }
 
     initialize_sbox();
-    print_sbox();
 
+    printf("\n--- TEST SINGLE BLOCK ---\n");
     printf("\nCryptare AES-128:\n\n");
     printf("Plaintext: ");
     print_hex(plaintext);
@@ -125,36 +123,87 @@ void test_aes_128() {
     print_hex(key);
     printf("\n");
 
-    auto ref = aes128_encrypt_openssl_no_padding(plaintext, key);
+    auto ref = aes128_encrypt_openssl(plaintext, key);
 
     cout << "Rezultatul OpenSSL: ";
     print_hex(ref);
 
-    aes_128_encrypt(plaintext_mine, key_mine, ciphertext_mine);
+    int cipher_len = 0;
+    aes_128_encrypt(plaintext_mine, 16, key_mine, ciphertext_mine, &cipher_len);
 
     cout << "Rezultatul functiei implementate: ";
-    print_hex(ciphertext_mine, 16);
+    print_hex(ciphertext_mine, cipher_len);
 
-    if (compare_array_with_vector(ciphertext_mine, ref, 16))
-        cout << "Criptarea a fost corecta\n";
+    if (compare_array_with_vector(ciphertext_mine, ref, cipher_len))
+        cout << "[SUCCESS] Criptarea a fost corecta\n";
     else
-        cout << "Criptarea NU a fost corecta\n";
+        cout << "[FAILED] Criptarea NU a fost corecta\n";
 
     printf("\nDecriptare AES-128:\n\n");
     printf("Ciphertext: ");
-    print_hex(ciphertext_mine, 16);
+    print_hex(ciphertext_mine, cipher_len);
     printf("Cheie: ");
     print_hex(key);
     printf("\n");
 
-    aes_128_decrypt(ciphertext_mine, key_mine, decrypted_mine);
+    int decrypted_len = 0;
+    aes_128_decrypt(ciphertext_mine, cipher_len, key_mine, decrypted_mine, &decrypted_len);
 
     printf("Plaintext decrypted: ");
-    print_hex(decrypted_mine, 16);
+    print_hex(decrypted_mine, decrypted_len);
 
-    if (compare_arrays(plaintext_mine, decrypted_mine, 16))
-        cout << "Decriptarea a fost corecta\n";
+    if (compare_arrays(plaintext_mine, decrypted_mine, 16) && decrypted_len == 16)
+        cout << "[SUCCESS] Decriptarea a fost corecta\n";
     else
-        cout << "Decriptarea NU a fost corecta\n";
+        cout << "[FAILED] Decriptarea NU a fost corecta\n";
 	cout << "---------------------------------------------\n\n";
+
+    printf("\n--- TEST MULTI BLOCK (cu padding) ---\n");
+    
+    // Un mesaj de 37 octeți, ceea ce necesită cel puțin 3 blocuri și padding
+    vector<unsigned char> multi_plaintext = {
+        'A', 'c', 'e', 's', 't', 'a', ' ', 'e', 's', 't', 'e', ' ',
+        'u', 'n', ' ', 'm', 'e', 's', 'a', 'j', ' ', 'm', 'a', 'i', ' ',
+        'l', 'u', 'n', 'g', ' ', 'p', 'e', 'n', 't', 'r', 'u', '!'
+    };
+
+    uchar multi_pt_mine[128] = { 0 };
+    uchar multi_ct_mine[128] = { 0 };
+    uchar multi_dt_mine[128] = { 0 };
+
+    for (size_t i = 0; i < multi_plaintext.size(); i++)
+    {
+        multi_pt_mine[i] = multi_plaintext[i];
+    }
+
+    auto multi_ref = aes128_encrypt_openssl(multi_plaintext, key);
+
+    printf("Plaintext multi-bloc: ");
+    print_hex(multi_plaintext);
+    cout << "\nRezultat OpenSSL: ";
+    print_hex(multi_ref);
+
+    int multi_cipher_len = 0;
+    aes_128_encrypt(multi_pt_mine, static_cast<int>(multi_plaintext.size()), key_mine, multi_ct_mine, &multi_cipher_len);
+
+    cout << "Rezultat Criptare Implementata: ";
+    print_hex(multi_ct_mine, multi_cipher_len);
+
+    if (compare_array_with_vector(multi_ct_mine, multi_ref, multi_cipher_len))
+        cout << "[SUCCESS] Criptarea multi-bloc coincida!\n";
+    else
+        cout << "[FAILED] Criptarea multi-bloc esueaza!\n";
+
+    int multi_decrypted_len = 0;
+    aes_128_decrypt(multi_ct_mine, multi_cipher_len, key_mine, multi_dt_mine, &multi_decrypted_len);
+
+    printf("Plaintext Decriptat Implementat: ");
+    print_hex(multi_dt_mine, multi_decrypted_len);
+
+    if (compare_arrays(multi_pt_mine, multi_dt_mine, multi_decrypted_len) && multi_decrypted_len == multi_plaintext.size())
+        cout << "[SUCCESS] Decriptarea multi-bloc a functionat!\n";
+    else
+        cout << "[FAILED] Decriptarea multi-bloc esueaza!\n";
+        
+    cout << "---------------------------------------------\n\n";
 }

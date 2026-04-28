@@ -9,6 +9,7 @@
 
 #define PORT 9999
 #define BUF_SIZE 1024
+#define CHUNK_SIZE 16 
 
 DWORD WINAPI receive_loop(LPVOID arg);
 SOCKET try_as_server();
