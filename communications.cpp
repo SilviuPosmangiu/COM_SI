@@ -2,13 +2,7 @@
 #include "aes_128.h"
 
 int peer_socket = -1;
-
-const uchar shared_key[16] = {
-    0x2b, 0x7e, 0x15, 0x16,
-    0x28, 0xae, 0xd2, 0xa6,
-    0xab, 0xf7, 0x15, 0x88,
-    0x09, 0xcf, 0x4f, 0x3c
-};
+uchar shared_key[16];
 
 using namespace std;
 
@@ -104,15 +98,152 @@ SOCKET try_as_client(const char* peer_ip) {
     return sock;
 }
 
+long long rsa_gcd(long long a, long long b) {
+    while (b) {
+        a %= b;
+		long long temp = a;
+        a = b;
+		b = temp;
+    }
+    return a;
+}
+
+long long rsa_modInverse(long long a, long long m) {
+    long long m0 = m, y = 0, x = 1;
+    if (m == 1) return 0;
+    while (a > 1) {
+        long long q = a / m;
+        long long t = m;
+        m = a % m, a = t;
+        t = y;
+        y = x - q * y;
+        x = t;
+    }
+    if (x < 0) x += m0;
+    return x;
+}
+
+long long rsa_modExp(long long base, long long exp, long long mod) {
+    long long res = 1;
+    base = base % mod;
+    while (exp > 0) {
+        if (exp % 2 == 1) res = (res * base) % mod;
+        exp = exp >> 1;
+        base = (base * base) % mod;
+    }
+    return res;
+}
+
+int rsa_isPrime(long long n) {
+    if (n < 2)
+        return 0;
+
+    for (long long i = 2; i * i <= n; i++) {
+        if (n % i == 0)
+            return 0;
+    }
+
+    return 1;
+}
+
+long long rsa_generatePrime() {
+    while (1) {
+        long long x = rand() % 100 + 100;
+
+        if (rsa_isPrime(x))
+            return x;
+    }
+}
+
+RSAKeyPair rsa_generateKeys() {
+    RSAKeyPair key;
+
+    long long p = rsa_generatePrime();
+    long long q = rsa_generatePrime();
+
+    while (q == p)
+        q = rsa_generatePrime();
+
+    long long n = p * q;
+    long long phi = (p - 1) * (q - 1);
+
+    long long e = 3;
+
+    while (rsa_gcd(e, phi) != 1)
+        e += 2;
+
+    long long d = rsa_modInverse(e, phi);
+
+    key.n = n;
+    key.e = e;
+    key.d = d;
+
+    return key;
+}
+
+
+void rsa_server_handshake(int peer_socket) {
+    // Placeholder for RSA handshake implementation
+	srand(time(NULL));
+
+	RSAKeyPair keys = rsa_generateKeys();
+
+	printf("[*] Public Key Generated: (e=%lld, n=%lld)\n", keys.e, keys.n);
+	printf("[*] Private Key Generated: (d=%lld, n=%lld)\n", keys.d, keys.n);
+
+	send(peer_socket, (const char*)&keys.e, sizeof(keys.e), 0);
+	send(peer_socket, (const char*)&keys.n, sizeof(keys.n), 0);
+
+    printf("[*] Waiting for client key");
+
+    long long encryptedAESKey[16];
+	recv(peer_socket, (char*)encryptedAESKey, sizeof(encryptedAESKey), 0);
+    for (int i = 0; i < 16; i++) {
+        long long decryptedByte = rsa_modExp(encryptedAESKey[i], keys.d, keys.n);
+        shared_key[i] = (uchar)decryptedByte;
+    }
+	printf("\n[*] AES key received and decrypted: ");
+    for(int i = 0; i < 16; i++) {
+        printf("%02x ", shared_key[i]);
+	}
+	printf("\n");
+}
+
+void rsa_client_handshake(int peer_socket) {
+    // Placeholder for RSA handshake implementation
+	srand(time(NULL));
+
+    long long e, n;
+        recv(peer_socket, (char*)&e, sizeof(e), 0);
+    recv(peer_socket, (char*)&n, sizeof(n), 0);
+    printf("[*] Received Public Key: (e=%lld, n=%lld)\n", e, n);
+    for (int i = 0; i < 16; i++) {
+        shared_key[i] = rand() % 256;
+    }
+    printf("[*] Generated AES Key: ");
+    for(int i = 0; i < 16; i++) {
+        printf("%02x ", shared_key[i]);
+	}
+    printf("\n");
+    long long encryptedAESKey[16];
+    for (int i = 0; i < 16; i++) {
+        encryptedAESKey[i] = rsa_modExp(shared_key[i], e, n);
+    }
+    send(peer_socket, (const char*)encryptedAESKey, sizeof(encryptedAESKey), 0);
+	printf("[*] AES key encrypted and sent to server.\n");
+}
+
 int start_communication(const char* ip) {
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
+    bool is_server = false;
 
     peer_socket = try_as_client(ip);
 
     if (peer_socket == INVALID_SOCKET) {
         printf("[*] Could not connect, waiting as server...\n");
         peer_socket = try_as_server();
+        is_server = true;
     }
 
     if (peer_socket == INVALID_SOCKET) {
@@ -122,6 +253,13 @@ int start_communication(const char* ip) {
     }
 
     printf("[OK] Connected! Start chatting.\n\n");
+
+    if (is_server) {
+		rsa_server_handshake(peer_socket);
+    }
+    else {
+		rsa_client_handshake(peer_socket);
+    }
 
     CreateThread(NULL, 0, receive_loop, NULL, 0, NULL);
 

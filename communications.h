@@ -2,10 +2,12 @@
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <cstdlib>
 
 #pragma comment(lib, "ws2_32.lib")
 
 #include <stdio.h>
+#include <time.h>
 
 #define PORT 9999
 #define BUF_SIZE 1024
@@ -15,3 +17,9 @@ DWORD WINAPI receive_loop(LPVOID arg);
 SOCKET try_as_server();
 SOCKET try_as_client(const char* peer_ip);
 int start_communication(const char* ip);
+
+struct RSAKeyPair {
+    long long n;
+    long long e;
+    long long d;
+};
